@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="stylesheet" href="style.css">
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .post { border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+    button { margin-top: 5px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<script>
+  if (localStorage.theme === 'dark') document.body.classList.add('dark');
+  function toggleTheme() {
+    document.body.classList.toggle('dark');
+    localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+  }
+</script>
+<button onclick="toggleTheme()">🌙 Toggle Theme</button>
+
+  <h1>Admin Panel</h1>
+  <input type="password" id="password" placeholder="Enter admin password">
+  <button onclick="loadPosts()">Load Posts</button>
+  <div id="posts"></div>
+
+  <script>
+    async function loadPosts() {
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/admin/posts?password=' + password);
+      if (!res.ok) return alert('Wrong password or error');
+      const posts = await res.json();
+      const container = document.getElementById('posts');
+      container.innerHTML = '';
+      posts.forEach(post => {
+        const el = document.createElement('div');
+        el.className = 'post';
+        el.innerHTML = '<b>' + post.user + '</b><br>' + post.text + '<br>' +
+          (post.media ? '<a href="/' + post.media + '" target="_blank">View File</a><br>' : '') +
+          '<button onclick="deletePost(\'' + post._id + '\', \''
+          + password + '\')">Delete</button>';
+        container.appendChild(el);
+      });
+    }
+
+    async function deletePost(id, password) {
+      if (!confirm('Delete this post?')) return;
+      await fetch('/api/admin/posts/' + id + '?password=' + password, { method: 'DELETE' });
+      loadPosts();
+    }
+  </script>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js');
+  }
+</script>
+
+</body>
+</html>
+
+<script>
+fetch('/api/posts')
+  .then(res => res.json())
+  .then(data => {
+    const list = document.createElement('div');
+    data.forEach(post => {
+      const div = document.createElement('div');
+      div.innerHTML = `<p><b>${post.name}</b>: ${post.text || ''} <a href="${post.file}" target="_blank">[File]</a>
+      <form method="POST" action="/delete/${post._id}" style="display:inline">
+        <button type="submit">Delete</button>
+      </form></p>`;
+      list.appendChild(div);
+    });
+    document.body.appendChild(list);
+  });
+</script>

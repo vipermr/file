@@ -1,0 +1,63 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="stylesheet" href="style.css">
+  <title>Post Something</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 10px 15px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<script>
+  if (localStorage.theme === 'dark') document.body.classList.add('dark');
+  function toggleTheme() {
+    document.body.classList.toggle('dark');
+    localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+  }
+</script>
+<button onclick="toggleTheme()">🌙 Toggle Theme</button>
+
+  <h1>Welcome to Nafij's File Sharing</h1>
+  <nav>
+    <a href="/">Post</a> |
+    <a href="/all">View Posts</a> |
+    <a href="/info">About Me</a>
+  </nav>
+  <h2>Post something</h2>
+  <form method="POST" action="/api/posts" enctype="multipart/form-data">
+    <input type="text" name="user" placeholder="Your name" required><br><br>
+    <textarea name="text" placeholder="Say something..." rows="4" cols="50"></textarea><br><br>
+    <label>Select a file to upload:</label><br>
+    <input type="file" name="file"><br><br>
+    <button type="submit">Post</button>
+  </form>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js');
+  }
+</script>
+
+</body>
+</html>
+
+<script>
+fetch('/api/posts').then(res => res.json()).then(data => {
+  const container = document.createElement('div');
+  data.forEach(post => {
+    const link = post.file ? `<a href="${post.file}" target="_blank">📎 File</a>` : '';
+    container.innerHTML += `<p><b>${post.name}</b>: ${post.text || ''} ${link}</p>`;
+  });
+  document.body.appendChild(container);
+});
+</script>

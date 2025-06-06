@@ -1,0 +1,35 @@
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+}
+:root {
+  --bg: #ffffff;
+  --text: #000000;
+}
+body.dark {
+  --bg: #111111;
+  --text: #ffffff;
+}
+.container {
+  max-width: 800px;
+  margin: auto;
+  padding: 1rem;
+}
+button {
+  padding: 0.4rem 1rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .container {
+    padding: 0.5rem;
+  }
+  button {
+    width: 100%;
+  }
+}
