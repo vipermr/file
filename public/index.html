@@ -45,6 +45,10 @@
       background: #1a1a1a;
       border-color: #444;
     }
+    a {
+      color: var(--text);
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -90,13 +94,19 @@
     .then(data => {
       const container = document.getElementById('post-previews');
       data.forEach(post => {
-        const link = post.file ? `<a href="${post.file}" target="_blank">📎 File</a>` :
-                     post.media ? `<a href="${post.media}" target="_blank">📎 File</a>` : '';
+        const name = post.user || "Anonymous";
+        const text = post.text || "";
+        const fileLink = post.file || post.media || "";
+        const fileHTML = fileLink ? `<a href="${fileLink}" target="_blank">📎 File</a>` : "";
+
         const el = document.createElement('div');
         el.className = 'post-preview';
-        el.innerHTML = `<p><b>${post.user}</b>: ${post.text || ''} ${link}</p>`;
+        el.innerHTML = `<p><strong>${name}</strong>: ${text} ${fileHTML}</p>`;
         container.appendChild(el);
       });
+    })
+    .catch(err => {
+      console.error('Error loading posts:', err);
     });
 </script>
 
