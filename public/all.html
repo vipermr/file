@@ -31,7 +31,7 @@
     }
     button {
       margin: 5px;
-      padding: 10px 15px;
+      padding: 8px 14px;
       cursor: pointer;
     }
     .post-preview {
@@ -93,7 +93,7 @@
     .then(data => {
       const container = document.getElementById('post-previews');
 
-      // Sort by likes descending, and get top 5
+      // Sort and slice
       const topPosts = data
         .filter(post => post && typeof post.likes === 'number')
         .sort((a, b) => b.likes - a.likes)
@@ -103,12 +103,20 @@
         const name = post.user || "Anonymous";
         const text = post.text || "";
         const fileLink = post.file || post.media || "";
-        const fileHTML = fileLink ? `<a href="${fileLink}" target="_blank">📎 File</a>` : "";
+        const fileHTML = fileLink ? `<a href="${fileLink}" download target="_blank">⬇️ Download</a>` : "";
         const likes = post.likes || 0;
+        const postId = post._id || post.id; // Adjust depending on your DB schema
 
         const el = document.createElement('div');
         el.className = 'post-preview';
-        el.innerHTML = `<p><strong>${name}</strong>${text ? `: ${text}` : ""} ${fileHTML}<br>❤️ ${likes} likes</p>`;
+        el.innerHTML = `
+          <p><strong>${name}</strong>${text ? `: ${text}` : ""}</p>
+          ${fileHTML ? `<p>${fileHTML}</p>` : ""}
+          <p>
+            ❤️ <span id="like-count-${postId}">${likes}</span>
+            <button onclick="likePost('${postId}')">Like</button>
+          </p>
+        `;
         container.appendChild(el);
       });
 
@@ -119,6 +127,24 @@
     .catch(err => {
       console.error('Error loading posts:', err);
     });
+
+  function likePost(postId) {
+    fetch(`/api/posts/${postId}/like`, {
+      method: 'POST'
+    })
+    .then(res => {
+      if (res.ok) {
+        const countSpan = document.getElementById(`like-count-${postId}`);
+        countSpan.textContent = parseInt(countSpan.textContent) + 1;
+      } else {
+        alert("Failed to like post.");
+      }
+    })
+    .catch(err => {
+      console.error("Like error:", err);
+      alert("Error while liking the post.");
+    });
+  }
 </script>
 </body>
 </html>
