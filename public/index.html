@@ -1,30 +1,63 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
   <meta name="theme-color" content="#000000">
-
   <link rel="stylesheet" href="style.css">
   <title>Post Something</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    button { margin: 5px; padding: 10px 15px; }
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
+    }
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+    }
+    body.dark {
+      --bg: #111111;
+      --text: #ffffff;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 1rem;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+    .post-preview {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 15px;
+      background: #f9f9f9;
+    }
+    body.dark .post-preview {
+      background: #1a1a1a;
+      border-color: #444;
+    }
   </style>
 </head>
 <body>
 <div class="container">
 
-<script>
-  if (localStorage.theme === 'dark') document.body.classList.add('dark');
-  function toggleTheme() {
-    document.body.classList.toggle('dark');
-    localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
-  }
-</script>
-<button onclick="toggleTheme()">🌙 Toggle Theme</button>
+  <script>
+    if (localStorage.theme === 'dark') document.body.classList.add('dark');
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+      localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+    }
+  </script>
+  <button onclick="toggleTheme()">🌙 Toggle Theme</button>
 
   <h1>Welcome to Nafij's File Sharing</h1>
   <nav>
@@ -32,6 +65,7 @@
     <a href="/all">View Posts</a> |
     <a href="/info">About Me</a>
   </nav>
+
   <h2>Post something</h2>
   <form method="POST" action="/api/posts" enctype="multipart/form-data">
     <input type="text" name="user" placeholder="Your name" required><br><br>
@@ -40,24 +74,31 @@
     <input type="file" name="file"><br><br>
     <button type="submit">Post</button>
   </form>
+
+  <h3>Recent Posts</h3>
+  <div id="post-previews"></div>
+
 </div>
 
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
   }
+
+  fetch('/api/posts')
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById('post-previews');
+      data.forEach(post => {
+        const link = post.file ? `<a href="${post.file}" target="_blank">📎 File</a>` :
+                     post.media ? `<a href="${post.media}" target="_blank">📎 File</a>` : '';
+        const el = document.createElement('div');
+        el.className = 'post-preview';
+        el.innerHTML = `<p><b>${post.user}</b>: ${post.text || ''} ${link}</p>`;
+        container.appendChild(el);
+      });
+    });
 </script>
 
 </body>
 </html>
-
-<script>
-fetch('/api/posts').then(res => res.json()).then(data => {
-  const container = document.createElement('div');
-  data.forEach(post => {
-    const link = post.file ? `<a href="${post.file}" target="_blank">📎 File</a>` : '';
-    container.innerHTML += `<p><b>${post.name}</b>: ${post.text || ''} ${link}</p>`;
-  });
-  document.body.appendChild(container);
-});
-</script>
