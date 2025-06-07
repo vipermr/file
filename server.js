@@ -79,7 +79,7 @@ app.delete('/api/admin/posts/:id', async (req, res) => {
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
-app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
 app.get('/all', (req, res) => res.sendFile(path.join(__dirname, 'public/all.html')));
 app.get('/info', (req, res) => res.sendFile(path.join(__dirname, 'public/info.html')));
 
