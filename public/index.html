@@ -69,11 +69,6 @@
   <button onclick="toggleTheme()">🌙 Toggle Theme</button>
 
   <h1>Welcome to Nafij's File Sharing</h1>
-  <nav>
-    <a href="/">Post</a> |
-    <a href="/all">View Posts</a> |
-    <a href="/info">About Me</a>
-  </nav>
 
   <h2>Post something</h2>
   <form method="POST" action="/api/posts" enctype="multipart/form-data">
@@ -92,14 +87,11 @@
 
 <script>
   if ('serviceWorker' in navigator) {
-    // Unregister old service workers (prevents caching bugs)
     navigator.serviceWorker.getRegistrations().then(function(registrations) {
       for (let registration of registrations) {
         registration.unregister();
       }
     });
-
-    // Register new service worker
     navigator.serviceWorker.register('/service-worker.js');
   }
 </script>
