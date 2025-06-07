@@ -52,6 +52,20 @@ app.get('/api/posts', async (req, res) => {
   res.json(posts);
 });
 
+app.post('/api/admin/posts', async (req, res) => {
+  const { password } = req.body;
+  if (password !== process.env.ADMIN_PASSWORD) return res.status(403).send('Forbidden');
+  const posts = await Post.find().sort({ createdAt: -1 });
+  res.json(posts);
+});
+
+app.delete('/api/admin/posts/:id', async (req, res) => {
+  const { password } = req.body;
+  if (password !== process.env.ADMIN_PASSWORD) return res.status(403).send('Forbidden');
+  await Post.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
 app.get('/api/admin/posts', async (req, res) => {
   if (req.query.password !== process.env.ADMIN_PASSWORD) return res.status(403).send('Forbidden');
   const posts = await Post.find().sort({ createdAt: -1 });
