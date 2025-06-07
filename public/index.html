@@ -94,14 +94,14 @@
     .then(data => {
       const container = document.getElementById('post-previews');
       data.forEach(post => {
-        const name = post.user || "Anonymous";
-        const text = post.text || "";
-        const fileLink = post.file || post.media || "";
+        const name = (post && post.user) ? post.user : "Anonymous";
+        const text = (post && post.text) ? post.text : "";
+        const fileLink = (post && (post.file || post.media)) ? (post.file || post.media) : "";
         const fileHTML = fileLink ? `<a href="${fileLink}" target="_blank">📎 File</a>` : "";
 
         const el = document.createElement('div');
         el.className = 'post-preview';
-        el.innerHTML = `<p><strong>${name}</strong>: ${text} ${fileHTML}</p>`;
+        el.innerHTML = `<p><strong>${name}</strong>${text ? `: ${text}` : ""} ${fileHTML}</p>`;
         container.appendChild(el);
       });
     })
