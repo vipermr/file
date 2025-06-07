@@ -34,20 +34,22 @@
       padding: 10px 15px;
       cursor: pointer;
     }
-    .post-preview {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 10px;
-      margin-top: 15px;
-      background: #f9f9f9;
-    }
-    body.dark .post-preview {
-      background: #1a1a1a;
-      border-color: #444;
-    }
     a {
       color: var(--text);
       text-decoration: underline;
+    }
+    .footer {
+      margin-top: 50px;
+      text-align: center;
+    }
+    .premium-label {
+      display: inline-block;
+      background: linear-gradient(45deg, #ff8c00, #ff2d55);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 25px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
   </style>
 </head>
@@ -79,8 +81,9 @@
     <button type="submit">Post</button>
   </form>
 
-  <h3>Recent Posts</h3>
-  <div id="post-previews"></div>
+  <div class="footer">
+    <div class="premium-label">Created by Nafij Pro</div>
+  </div>
 
 </div>
 
@@ -88,26 +91,6 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
   }
-
-  fetch('/api/posts')
-    .then(res => res.json())
-    .then(data => {
-      const container = document.getElementById('post-previews');
-      data.forEach(post => {
-        const name = (post && post.user) ? post.user : "Anonymous";
-        const text = (post && post.text) ? post.text : "";
-        const fileLink = (post && (post.file || post.media)) ? (post.file || post.media) : "";
-        const fileHTML = fileLink ? `<a href="${fileLink}" target="_blank">📎 File</a>` : "";
-
-        const el = document.createElement('div');
-        el.className = 'post-preview';
-        el.innerHTML = `<p><strong>${name}</strong>${text ? `: ${text}` : ""} ${fileHTML}</p>`;
-        container.appendChild(el);
-      });
-    })
-    .catch(err => {
-      console.error('Error loading posts:', err);
-    });
 </script>
 
 </body>
