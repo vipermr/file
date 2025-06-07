@@ -1,117 +1,124 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>All Posts</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
   <meta name="theme-color" content="#000000">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="style.css">
+  <title>Post Something</title>
   <style>
     body {
       font-family: sans-serif;
-      background: #fff;
-      color: #000;
+      margin: 20px;
+      background: var(--bg);
+      color: var(--text);
       transition: background 0.3s, color 0.3s;
     }
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+    }
     body.dark {
-      background: #121212;
-      color: #f1f1f1;
+      --bg: #111111;
+      --text: #ffffff;
     }
     .container {
-      max-width: 700px;
-      margin: 0 auto;
+      max-width: 800px;
+      margin: auto;
       padding: 1rem;
-    }
-    .post-box {
-      border: 1px solid #ccc;
-      background: #f9f9f9;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border-radius: 10px;
-    }
-    body.dark .post-box {
-      background: #1e1e1e;
-      border-color: #444;
     }
     button {
-      padding: 5px 10px;
-      margin-top: 0.5rem;
+      margin: 5px;
+      padding: 10px 15px;
       cursor: pointer;
     }
-    img, video, audio {
-      max-width: 100%;
-      margin-top: 0.5rem;
+    .post-preview {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 15px;
+      background: #f9f9f9;
+    }
+    body.dark .post-preview {
+      background: #1a1a1a;
+      border-color: #444;
+    }
+    a {
+      color: var(--text);
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
 <div class="container">
+  <script>
+    if (localStorage.theme === 'dark') document.body.classList.add('dark');
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+      localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+    }
+  </script>
+
   <button onclick="toggleTheme()">🌙 Toggle Theme</button>
-  <h1>All Posts</h1>
-  <div id="posts"></div>
+
+  <h1>Welcome to Nafij's File Sharing</h1>
+  <nav>
+    <a href="/">Post</a> |
+    <a href="/all">View Posts</a> |
+    <a href="/info">About Me</a>
+  </nav>
+
+  <h2>Post something</h2>
+  <form method="POST" action="/api/posts" enctype="multipart/form-data">
+    <input type="text" name="user" placeholder="Your name" required><br><br>
+    <textarea name="text" placeholder="Say something..." rows="4" cols="50"></textarea><br><br>
+    <label>Select a file to upload:</label><br>
+    <input type="file" name="file"><br><br>
+    <button type="submit">Post</button>
+  </form>
+
+  <h3>Top 5 Liked Posts</h3>
+  <div id="post-previews"></div>
 </div>
 
 <script>
-  // Theme toggle
-  if (localStorage.theme === 'dark') document.body.classList.add('dark');
-  function toggleTheme() {
-    document.body.classList.toggle('dark');
-    localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
-  }
-
-  // Fetch and render posts
-  fetch('/api/posts')
-    .then(res => res.json())
-    .then(posts => {
-      posts.sort((a, b) => (b.likes || 0) - (a.likes || 0)); // sort by likes
-      const container = document.getElementById('posts');
-      posts.forEach(post => {
-        const el = document.createElement('div');
-        el.className = "post-box";
-
-        let mediaHTML = '';
-        if (post.media) {
-          const fileType = post.fileType || '';
-          if (fileType.startsWith('image/')) {
-            mediaHTML = `<img src="${post.media}" alt="Image">`;
-          } else if (fileType.startsWith('video/')) {
-            mediaHTML = `<video controls><source src="${post.media}" type="${fileType}"></video>`;
-          } else if (fileType.startsWith('audio/')) {
-            mediaHTML = `<audio controls><source src="${post.media}" type="${fileType}"></audio>`;
-          } else {
-            mediaHTML = `<a href="${post.media}" download>📎 Download File</a>`;
-          }
-        }
-
-        el.innerHTML = `
-          <div><strong>${post.user || 'Anonymous'}</strong></div>
-          <div>${post.text || ''}</div>
-          <div>${mediaHTML}</div>
-          <div>
-            ❤️ <span id="likes-${post._id}">${post.likes || 0}</span>
-            <button onclick="lovePost('${post._id}')">💖 Love</button>
-          </div>
-        `;
-        container.appendChild(el);
-      });
-    });
-
-  function lovePost(id) {
-    fetch('/api/posts/' + id + '/love', { method: 'POST' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById('likes-' + id).textContent = data.likes;
-        }
-      });
-  }
-
-  // Service Worker for PWA
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
   }
+
+  fetch('/api/posts')
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById('post-previews');
+
+      // Sort by likes descending, and get top 5
+      const topPosts = data
+        .filter(post => post && typeof post.likes === 'number')
+        .sort((a, b) => b.likes - a.likes)
+        .slice(0, 5);
+
+      topPosts.forEach(post => {
+        const name = post.user || "Anonymous";
+        const text = post.text || "";
+        const fileLink = post.file || post.media || "";
+        const fileHTML = fileLink ? `<a href="${fileLink}" target="_blank">📎 File</a>` : "";
+        const likes = post.likes || 0;
+
+        const el = document.createElement('div');
+        el.className = 'post-preview';
+        el.innerHTML = `<p><strong>${name}</strong>${text ? `: ${text}` : ""} ${fileHTML}<br>❤️ ${likes} likes</p>`;
+        container.appendChild(el);
+      });
+
+      if (topPosts.length === 0) {
+        container.innerHTML = "<p>No posts available.</p>";
+      }
+    })
+    .catch(err => {
+      console.error('Error loading posts:', err);
+    });
 </script>
 </body>
 </html>
