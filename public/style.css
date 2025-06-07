@@ -1,35 +1,145 @@
+:root {
+  /* Light Mode Colors */
+  --bg-light: #f5f7fa;
+  --text-light: #111111;
+  --card-bg-light: #ffffff;
+  --border-light: #dddddd;
 
+  /* Dark Mode Colors */
+  --bg-dark: #0d1117;
+  --text-dark: #eaeaea;
+  --card-bg-dark: #161b22;
+  --border-dark: #2e3440;
+
+  /* Accent Colors */
+  --primary: #4f46e5;
+  --accent: #10b981;
+
+  /* Shared */
+  --radius: 12px;
+  --transition: 0.3s ease;
+  --shadow-light: 0 2px 10px rgba(0, 0, 0, 0.1);
+  --shadow-dark: 0 2px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* General Body Styling */
 body {
-  font-family: sans-serif;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg-light);
+  color: var(--text-light);
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  transition: background 0.3s, color 0.3s;
+  transition: background var(--transition), color var(--transition);
+  line-height: 1.6;
 }
-:root {
-  --bg: #ffffff;
-  --text: #000000;
-}
+
+/* Dark Mode */
 body.dark {
-  --bg: #111111;
-  --text: #ffffff;
+  background: var(--bg-dark);
+  color: var(--text-dark);
 }
+
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: auto;
+  padding: 1.5rem;
+}
+
+/* Header */
+h1 {
+  text-align: center;
+  margin: 1.5rem 0 1rem;
+  font-size: 2rem;
+  color: var(--primary);
+}
+
+/* Post Card */
+.card {
+  border: 1px solid var(--border-light);
+  background: var(--card-bg-light);
+  border-radius: var(--radius);
   padding: 1rem;
+  margin: 1.2rem 0;
+  box-shadow: var(--shadow-light);
+  transition: transform var(--transition), box-shadow var(--transition);
 }
+
+body.dark .card {
+  background: var(--card-bg-dark);
+  border: 1px solid var(--border-dark);
+  box-shadow: var(--shadow-dark);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+}
+
+/* Buttons */
 button {
-  padding: 0.4rem 1rem;
-  margin-top: 0.5rem;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
   cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background var(--transition), transform var(--transition);
 }
+
+button:hover {
+  background: #4338ca;
+  transform: scale(1.02);
+}
+
+button.love {
+  background: var(--accent);
+}
+
+button.love:hover {
+  background: #059669;
+}
+
+/* Theme Toggle */
+.toggle-btn {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  background: transparent;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.toggle-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* Links */
+a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
 @media (max-width: 600px) {
   .container {
-    padding: 0.5rem;
+    padding: 1rem;
   }
-  button {
+
+  button,
+  .toggle-btn {
     width: 100%;
+    margin-top: 0.8rem;
   }
 }
