@@ -93,6 +93,9 @@
         return;
       }
 
+      // Sort posts by number of likes in descending order
+      data.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+
       data.forEach(post => {
         const name = post.user || "Anonymous";
         const text = post.text || "";
