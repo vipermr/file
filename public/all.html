@@ -104,13 +104,24 @@
         let mediaHTML = '';
         if (fileLink) {
           if (fileType.startsWith("image/")) {
-            mediaHTML = `<img src="${fileLink}" alt="Image" />`;
+            mediaHTML = `
+              <img src="${fileLink}" alt="Image" />
+              <br><a href="${fileLink}" download target="_blank">⬇️ Download Image</a>
+            `;
           } else if (fileType.startsWith("video/")) {
-            mediaHTML = `<video controls><source src="${fileLink}" type="${fileType}"></video>`;
+            mediaHTML = `
+              <video controls><source src="${fileLink}" type="${fileType}"></video>
+              <br><a href="${fileLink}" download target="_blank">⬇️ Download Video</a>
+            `;
           } else if (fileType.startsWith("audio/")) {
-            mediaHTML = `<audio controls><source src="${fileLink}" type="${fileType}"></audio>`;
+            mediaHTML = `
+              <audio controls><source src="${fileLink}" type="${fileType}"></audio>
+              <br><a href="${fileLink}" download target="_blank">⬇️ Download Audio</a>
+            `;
           } else {
-            mediaHTML = `<a href="${fileLink}" download target="_blank">📎 Download Attachment</a>`;
+            mediaHTML = `
+              <a href="${fileLink}" download target="_blank">📎 Download Attachment</a>
+            `;
           }
         }
 
