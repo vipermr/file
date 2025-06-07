@@ -1,0 +1,3 @@
+ADMIN_PASSWORD=pronafij
+MONGODB_URI=mongodb+srv://nafijpro:nafijthepro@fileshareing.wqmvvzd.mongodb.net/fileshare?retryWrites=true&w=majority&appName=fileshareing
+PORT=3000
