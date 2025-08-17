@@ -1,6 +1,6 @@
-const CACHE_NAME = 'nafij-file-share-v2';
-const STATIC_CACHE = 'static-v2';
-const DYNAMIC_CACHE = 'dynamic-v2';
+const CACHE_NAME = 'nafij-social-v3';
+const STATIC_CACHE = 'static-v3';
+const DYNAMIC_CACHE = 'dynamic-v3';
 
 // Static assets to cache
 const STATIC_ASSETS = [
@@ -104,7 +104,7 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Network-first strategy for API requests
+// Network-first strategy for API requests and dynamic content
 async function networkFirstStrategy(request) {
   try {
     const networkResponse = await fetch(request);
@@ -168,14 +168,32 @@ self.addEventListener('sync', event => {
 // Sync offline posts when connection is restored
 async function syncOfflinePosts() {
   try {
-    // Get offline posts from IndexedDB (would need to implement storage)
-    console.log('Syncing offline posts...');
+    // Get offline posts from IndexedDB
+    const offlinePosts = await getOfflinePosts();
     
-    // This is a placeholder - in a full implementation, you would:
-    // 1. Retrieve posts stored in IndexedDB while offline
-    // 2. Send them to the server
-    // 3. Remove them from local storage on success
-    // 4. Notify the user of sync status
+    for (const post of offlinePosts) {
+      try {
+        const formData = new FormData();
+        formData.append('user', post.user);
+        formData.append('text', post.text);
+        
+        if (post.file) {
+          formData.append('file', post.file);
+        }
+        
+        const response = await fetch('/api/posts', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          // Remove from offline storage
+          await removeOfflinePost(post.id);
+        }
+      } catch (error) {
+        console.error('Error syncing post:', error);
+      }
+    }
     
     // Send message to clients about sync status
     const clients = await self.clients.matchAll();
@@ -191,12 +209,89 @@ async function syncOfflinePosts() {
   }
 }
 
+// IndexedDB operations for offline posts
+async function getOfflinePosts() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('OfflinePosts', 1);
+    
+    request.onerror = () => reject(request.error);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['posts'], 'readonly');
+      const store = transaction.objectStore('posts');
+      const getAllRequest = store.getAll();
+      
+      getAllRequest.onsuccess = () => resolve(getAllRequest.result);
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    };
+    
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('posts')) {
+        db.createObjectStore('posts', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function removeOfflinePost(id) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('OfflinePosts', 1);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['posts'], 'readwrite');
+      const store = transaction.objectStore('posts');
+      const deleteRequest = store.delete(id);
+      
+      deleteRequest.onsuccess = () => resolve();
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    };
+  });
+}
+
+// Store offline post
+async function storeOfflinePost(postData) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('OfflinePosts', 1);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['posts'], 'readwrite');
+      const store = transaction.objectStore('posts');
+      const addRequest = store.add({
+        id: Date.now(),
+        ...postData,
+        timestamp: new Date()
+      });
+      
+      addRequest.onsuccess = () => resolve();
+      addRequest.onerror = () => reject(addRequest.error);
+    };
+    
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('posts')) {
+        db.createObjectStore('posts', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
 // Handle messages from the main thread
 self.addEventListener('message', event => {
   const { data } = event;
   
   if (data && data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  if (data && data.type === 'STORE_OFFLINE_POST') {
+    storeOfflinePost(data.post).then(() => {
+      // Register background sync
+      self.registration.sync.register('background-post');
+    });
   }
   
   if (data && data.type === 'CACHE_POST') {
@@ -206,7 +301,7 @@ self.addEventListener('message', event => {
   }
 });
 
-// Push notification handling (for future implementation)
+// Push notification handling
 self.addEventListener('push', event => {
   if (event.data) {
     const data = event.data.json();
@@ -251,7 +346,7 @@ self.addEventListener('notificationclick', event => {
   }
 });
 
-// Periodic background sync (for future implementation)
+// Periodic background sync
 self.addEventListener('periodicsync', event => {
   if (event.tag === 'content-sync') {
     event.waitUntil(syncContent());
@@ -259,15 +354,14 @@ self.addEventListener('periodicsync', event => {
 });
 
 async function syncContent() {
-  // Sync new content in the background
   try {
-    const response = await fetch('/api/posts');
+    const response = await fetch('/api/posts?limit=5');
     if (response.ok) {
       const posts = await response.json();
       
       // Cache new posts
       const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put('/api/posts', new Response(JSON.stringify(posts)));
+      cache.put('/api/posts?limit=5', new Response(JSON.stringify(posts)));
       
       // Notify clients of new content
       const clients = await self.clients.matchAll();
