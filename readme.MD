@@ -54,63 +54,7 @@ Sticky header with app name and theme toggle button.
 
 Use accessible semantic HTML and ARIA roles.
 
-5. PWA & Offline
 
-Fully working manifest.json with icons, colors, start_url, display standalone.
-
-Service worker caching: cache static assets (CSS/JS/images), cache-first strategy for assets, network-first for API requests with fallback.
-
-Background sync for posting when offline.
-
-Show offline indicator banner if no connection.
-
-Prompt user to install app with custom banner on supported browsers.
-
-6. Download & Media Handling
-
-All media files downloadable with visible download buttons.
-
-Video/audio streamed with range requests to support seeking and fast playback.
-
-Limit file sizes client-side and server-side with user feedback.
-
-Support drag & drop for file uploads with preview thumbnails before upload.
-
-7. Backend & API (Outline for your devs or your stack)
-
-REST API endpoints:
-
-GET /api/posts with pagination, sorting (newest first).
-
-POST /api/posts with username, text, media files.
-
-POST /api/posts/:id/like and /unlike.
-
-GET /api/posts/:id/comments and POST for comments.
-
-POST /api/posts/:id/comments/:cid/reactions.
-
-Simple user matching by username string, no auth.
-
-Media storage with secure URLs, streaming support for video/audio.
-
-Sanitize all inputs to prevent XSS.
-
-Rate limit per IP/username to avoid spam.
-
-8. Animations & Microinteractions
-
-Heart pulse on like.
-
-Fade/slide new posts & comments into feed.
-
-Button hover scale and shadow glow.
-
-Smooth expand/collapse on comments replies.
-
-Skeleton loaders for posts/comments while fetching.
-
-Animated toggle switch for dark mode.
 
 9. Extra UX Enhancements
 
