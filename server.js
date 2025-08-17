@@ -17,11 +17,21 @@ const CommentSchema = new mongoose.Schema({
   user: String,
   text: String,
   likes: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  replies: [this]
 });
 
 const PostSchema = new mongoose.Schema({
   likes: { type: Number, default: 0 },
+  reactions: {
+    love: { type: Number, default: 0 },
+    laugh: { type: Number, default: 0 },
+    like: { type: Number, default: 0 },
+    wow: { type: Number, default: 0 },
+    sad: { type: Number, default: 0 },
+    angry: { type: Number, default: 0 },
+    total: { type: Number, default: 0 }
+  },
   user: String,
   text: String,
   media: String,
@@ -70,8 +80,21 @@ app.get('/api/posts', async (req, res) => {
   res.json(posts);
 });
 
+// Get new posts since timestamp
+app.get('/api/posts/new', async (req, res) => {
+  try {
+    const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 15000);
+    const posts = await Post.find({ createdAt: { $gt: since } })
+      .sort({ createdAt: -1 })
+      .limit(10);
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send('Error fetching new posts');
+  }
+});
+
 // Like a post
-app.post('/api/posts/:id/love', async (req, res) => {
+app.post('/api/posts/:id/like', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).send('Post not found');
@@ -80,6 +103,31 @@ app.post('/api/posts/:id/love', async (req, res) => {
     res.json({ success: true, likes: post.likes });
   } catch (err) {
     res.status(500).send('Error updating likes');
+  }
+});
+
+// Add reaction to post
+app.post('/api/posts/:id/reactions', async (req, res) => {
+  try {
+    const { type, username } = req.body;
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).send('Post not found');
+    
+    // Initialize reactions if not exists
+    if (!post.reactions) {
+      post.reactions = { love: 0, laugh: 0, like: 0, wow: 0, sad: 0, angry: 0, total: 0 };
+    }
+    
+    // Increment reaction count
+    if (post.reactions[type] !== undefined) {
+      post.reactions[type] += 1;
+      post.reactions.total += 1;
+    }
+    
+    await post.save();
+    res.json({ success: true, reactions: post.reactions });
+  } catch (err) {
+    res.status(500).send('Error adding reaction');
   }
 });
 
@@ -102,6 +150,51 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     res.json({ success: true, comment });
   } catch (err) {
     res.status(500).send('Error adding comment');
+  }
+});
+
+// Add reply to comment
+app.post('/api/posts/:postId/comments/:commentId/replies', async (req, res) => {
+  try {
+    const { user, text } = req.body;
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).send('Post not found');
+    
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).send('Comment not found');
+    
+    const reply = {
+      user,
+      text,
+      likes: 0,
+      createdAt: new Date(),
+      replies: []
+    };
+    
+    if (!comment.replies) comment.replies = [];
+    comment.replies.push(reply);
+    
+    await post.save();
+    res.json({ success: true, reply });
+  } catch (err) {
+    res.status(500).send('Error adding reply');
+  }
+});
+
+// Like a comment
+app.post('/api/posts/:postId/comments/:commentId/like', async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).send('Post not found');
+    
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).send('Comment not found');
+    
+    comment.likes += 1;
+    await post.save();
+    res.json({ success: true, likes: comment.likes });
+  } catch (err) {
+    res.status(500).send('Error liking comment');
   }
 });
 

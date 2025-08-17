@@ -432,9 +432,24 @@
         
         <div class="post-actions">
           <button class="like-btn ${post.userLiked ? 'liked' : ''}" onclick="toggleLike('${post._id}')">
-            <span class="heart">❤️</span>
+            <span class="reaction-icon">❤️</span>
             <span class="like-count">${post.likes || 0}</span>
           </button>
+          
+          <div class="reactions-dropdown">
+            <button class="reactions-btn" onclick="toggleReactions('${post._id}')">
+              <span class="reaction-icon">😊</span>
+              <span class="reactions-count">${(post.reactions?.total || 0)}</span>
+            </button>
+            <div class="reactions-menu" id="reactions-${post._id}">
+              <button onclick="addReaction('${post._id}', 'love')" class="reaction-option">❤️</button>
+              <button onclick="addReaction('${post._id}', 'laugh')" class="reaction-option">😂</button>
+              <button onclick="addReaction('${post._id}', 'like')" class="reaction-option">👍</button>
+              <button onclick="addReaction('${post._id}', 'wow')" class="reaction-option">😮</button>
+              <button onclick="addReaction('${post._id}', 'sad')" class="reaction-option">😢</button>
+              <button onclick="addReaction('${post._id}', 'angry')" class="reaction-option">😠</button>
+            </div>
+          </div>
           
           <button class="comment-btn" onclick="toggleComments('${post._id}')">
             💬 <span class="comment-count">${post.comments?.length || 0}</span>
@@ -447,11 +462,11 @@
         
         <div class="comments-section" id="comments-${post._id}" style="display: none;">
           <div class="comments-list" id="comments-list-${post._id}">
-            ${(post.comments || []).map(comment => createCommentHTML(comment)).join('')}
+            ${(post.comments || []).map(comment => createCommentHTML(comment, post._id, 0)).join('')}
           </div>
           
           <div class="comment-form">
-            <input type="text" placeholder="Add a comment..." class="comment-input" 
+            <input type="text" placeholder="Add a comment..." class="comment-input" value="${localStorage.getItem('username') || ''}"
                    onkeypress="handleCommentSubmit(event, '${post._id}')" />
             <button onclick="submitComment('${post._id}')" class="btn btn-outline">Post</button>
           </div>
@@ -461,12 +476,14 @@
       return postDiv;
     }
 
-    function createCommentHTML(comment) {
+    function createCommentHTML(comment, postId, level = 0) {
       const timeAgo = getTimeAgo(new Date(comment.createdAt));
       const canDelete = comment.user === localStorage.getItem('username');
+      const maxLevel = 3;
+      const indent = level * 20;
       
       return `
-        <div class="comment" data-comment-id="${comment._id}">
+        <div class="comment level-${level}" data-comment-id="${comment._id}" style="margin-left: ${indent}px;">
           <div class="comment-header">
             <strong>${comment.user || 'Anonymous'}</strong>
             <span class="comment-time">${timeAgo}</span>
@@ -474,10 +491,20 @@
           </div>
           <div class="comment-content">${comment.text}</div>
           <div class="comment-actions">
-            <button class="like-btn ${comment.userLiked ? 'liked' : ''}" onclick="toggleCommentLike('${comment._id}')">
-              <span class="heart">❤️</span>
+            <button class="like-btn ${comment.userLiked ? 'liked' : ''}" onclick="toggleCommentLike('${comment._id}', '${postId}')">
+              <span class="reaction-icon">❤️</span>
               <span class="like-count">${comment.likes || 0}</span>
             </button>
+            ${level < maxLevel ? `<button class="reply-btn" onclick="showReplyForm('${comment._id}', '${postId}')">↩️ Reply</button>` : ''}
+          </div>
+          <div class="reply-form" id="reply-form-${comment._id}" style="display: none;">
+            <input type="text" placeholder="Write a reply..." class="reply-input" 
+                   onkeypress="handleReplySubmit(event, '${comment._id}', '${postId}')" />
+            <button onclick="submitReply('${comment._id}', '${postId}')" class="btn btn-outline">Reply</button>
+            <button onclick="hideReplyForm('${comment._id}')" class="btn btn-outline">Cancel</button>
+          </div>
+          <div class="replies" id="replies-${comment._id}">
+            ${(comment.replies || []).map(reply => createCommentHTML(reply, postId, level + 1)).join('')}
           </div>
         </div>
       `;
@@ -486,7 +513,7 @@
     // Post interactions
     async function toggleLike(postId) {
       try {
-        const response = await fetch(`/api/posts/${postId}/love`, {
+        const response = await fetch(`/api/posts/${postId}/like`, {
           method: 'POST'
         });
         
@@ -505,6 +532,48 @@
       } catch (error) {
         console.error('Error liking post:', error);
       }
+    }
+
+    async function addReaction(postId, reactionType) {
+      try {
+        const response = await fetch(`/api/posts/${postId}/reactions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: reactionType,
+            username: localStorage.getItem('username') || 'Anonymous'
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          updateReactionsDisplay(postId, result.reactions);
+          hideReactions(postId);
+        }
+      } catch (error) {
+        console.error('Error adding reaction:', error);
+      }
+    }
+
+    function toggleReactions(postId) {
+      const menu = document.getElementById(`reactions-${postId}`);
+      const isVisible = menu.style.display === 'block';
+      
+      // Hide all other reaction menus
+      document.querySelectorAll('.reactions-menu').forEach(m => m.style.display = 'none');
+      
+      menu.style.display = isVisible ? 'none' : 'block';
+    }
+
+    function hideReactions(postId) {
+      document.getElementById(`reactions-${postId}`).style.display = 'none';
+    }
+
+    function updateReactionsDisplay(postId, reactions) {
+      const reactionsBtn = document.querySelector(`[data-post-id="${postId}"] .reactions-count`);
+      reactionsBtn.textContent = reactions.total || 0;
     }
 
     function toggleComments(postId) {
@@ -551,6 +620,78 @@
         }
       } catch (error) {
         console.error('Error posting comment:', error);
+      }
+    }
+
+    function showReplyForm(commentId, postId) {
+      const replyForm = document.getElementById(`reply-form-${commentId}`);
+      const replyInput = replyForm.querySelector('.reply-input');
+      
+      replyForm.style.display = 'block';
+      replyInput.focus();
+      replyInput.value = localStorage.getItem('username') || '';
+    }
+
+    function hideReplyForm(commentId) {
+      document.getElementById(`reply-form-${commentId}`).style.display = 'none';
+    }
+
+    function handleReplySubmit(event, commentId, postId) {
+      if (event.key === 'Enter') {
+        submitReply(commentId, postId);
+      }
+    }
+
+    async function submitReply(commentId, postId) {
+      const input = document.querySelector(`#reply-form-${commentId} .reply-input`);
+      const text = input.value.trim();
+      
+      if (!text) return;
+      
+      const username = localStorage.getItem('username') || 'Anonymous';
+      
+      try {
+        const response = await fetch(`/api/posts/${postId}/comments/${commentId}/replies`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user: username,
+            text: text
+          })
+        });
+        
+        if (response.ok) {
+          input.value = '';
+          hideReplyForm(commentId);
+          loadPosts(true); // Refresh to show new reply
+        }
+      } catch (error) {
+        console.error('Error posting reply:', error);
+      }
+    }
+
+    async function toggleCommentLike(commentId, postId) {
+      try {
+        const response = await fetch(`/api/posts/${postId}/comments/${commentId}/like`, {
+          method: 'POST'
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const likeBtn = document.querySelector(`[data-comment-id="${commentId}"] .like-btn`);
+          const likeCount = likeBtn.querySelector('.like-count');
+          
+          likeBtn.classList.add('liked');
+          likeCount.textContent = result.likes;
+          
+          // Animate heart
+          likeBtn.classList.add('pulse');
+          setTimeout(() => likeBtn.classList.remove('pulse'), 300);
+        }
+      } catch (error) {
+        console.error('Error liking comment:', error);
       }
     }
 
@@ -775,13 +916,44 @@
     // Real-time updates (polling every 15 seconds)
     setInterval(() => {
       if (navigator.onLine && currentView === 'feed') {
-        loadPosts(true);
+        checkForNewPosts();
       }
     }, 15000);
+
+    let lastPostTime = new Date();
+
+    async function checkForNewPosts() {
+      try {
+        const response = await fetch(`/api/posts/new?since=${lastPostTime.toISOString()}`);
+        const newPosts = await response.json();
+        
+        if (newPosts.length > 0) {
+          const container = document.getElementById('posts-feed');
+          
+          newPosts.reverse().forEach(post => {
+            const postElement = createPostElement(post);
+            postElement.classList.add('new-post');
+            container.insertBefore(postElement, container.firstChild);
+            
+            // Animate in
+            setTimeout(() => {
+              postElement.classList.add('fade-in');
+              postElement.classList.remove('new-post');
+            }, 100);
+          });
+          
+          lastPostTime = new Date(newPosts[0].createdAt);
+          showNotification(`${newPosts.length} new post${newPosts.length > 1 ? 's' : ''} added! 🎉`, 'success');
+        }
+      } catch (error) {
+        console.error('Error checking for new posts:', error);
+      }
+    }
 
     // Initialize app
     document.addEventListener('DOMContentLoaded', () => {
       loadPosts(true);
+      lastPostTime = new Date();
       
       // Add intersection observer for animations
       const observer = new IntersectionObserver((entries) => {
@@ -795,6 +967,15 @@
       // Observe all cards for animation
       document.querySelectorAll('.card').forEach(card => {
         observer.observe(card);
+      });
+      
+      // Close reactions menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.reactions-dropdown')) {
+          document.querySelectorAll('.reactions-menu').forEach(menu => {
+            menu.style.display = 'none';
+          });
+        }
       });
     });
   </script>
