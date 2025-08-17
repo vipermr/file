@@ -16,7 +16,14 @@
 <body>
   <!-- Offline Banner -->
   <div id="offline-banner" class="offline-banner" role="alert" aria-live="polite">
-    📡 You're offline. Posts will be synced when connection is restored.
+    <div class="offline-content">
+      <span class="offline-icon">📡</span>
+      <div>
+        <strong>You're offline</strong>
+        <small>Posts will be synced when connection is restored</small>
+        <div id="offline-count" class="offline-count"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Install Banner -->
@@ -76,15 +83,15 @@
               id="file-input" 
               name="file" 
               multiple 
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
               aria-describedby="file-help"
             />
             <div class="file-upload-text">
               <span>📎 Drag & drop files here or click to browse</span>
-              <small>Images, videos, audio, documents supported</small>
+              <small>Max 50MB per file • Images, videos, audio, documents supported</small>
             </div>
           </div>
-          <small id="file-help">Multiple files supported: images, videos, audio, documents</small>
+          <small id="file-help">Multiple files supported • Max 50MB per file • Total 200MB per post</small>
         </div>
 
         <div id="file-previews" class="file-previews"></div>
@@ -93,7 +100,10 @@
           <div class="progress-bar">
             <div class="progress-fill"></div>
           </div>
-          <span class="progress-text">Uploading...</span>
+          <div class="progress-info">
+            <span class="progress-text">Uploading...</span>
+            <span class="progress-percentage">0%</span>
+          </div>
           <button type="button" id="cancel-upload" class="btn-outline">Cancel</button>
         </div>
 
@@ -153,6 +163,9 @@
     let allPosts = [];
     let currentView = 'feed';
     let deferredPrompt;
+    let uploadController = null;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB
 
     // Theme Management
     const themeToggle = document.getElementById('theme-toggle');
@@ -213,30 +226,58 @@
     });
 
     function handleFileSelection(files) {
-      selectedFiles = [...selectedFiles, ...files];
+      // Validate file sizes
+      const validFiles = [];
+      let totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+      
+      for (const file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+          showNotification(`File "${file.name}" is too large. Max size is 50MB.`, 'error');
+          continue;
+        }
+        
+        if (totalSize + file.size > MAX_TOTAL_SIZE) {
+          showNotification(`Total file size would exceed 200MB limit.`, 'error');
+          break;
+        }
+        
+        validFiles.push(file);
+        totalSize += file.size;
+      }
+      
+      selectedFiles = [...selectedFiles, ...validFiles];
       displayFilePreviews();
     }
 
     function displayFilePreviews() {
       filePreviewsContainer.innerHTML = '';
+      
+      if (selectedFiles.length === 0) return;
+      
       selectedFiles.forEach((file, index) => {
         const preview = document.createElement('div');
         preview.className = 'file-preview';
+        
+        // Add file size info
+        const fileSize = formatFileSize(file.size);
         
         if (file.type.startsWith('image/')) {
           const img = document.createElement('img');
           img.src = URL.createObjectURL(file);
           img.alt = file.name;
+          img.onload = () => URL.revokeObjectURL(img.src);
           preview.appendChild(img);
         } else if (file.type.startsWith('video/')) {
           const video = document.createElement('video');
           video.src = URL.createObjectURL(file);
           video.controls = true;
+          video.onloadeddata = () => URL.revokeObjectURL(video.src);
           preview.appendChild(video);
         } else if (file.type.startsWith('audio/')) {
           const audio = document.createElement('audio');
           audio.src = URL.createObjectURL(file);
           audio.controls = true;
+          audio.onloadeddata = () => URL.revokeObjectURL(audio.src);
           preview.appendChild(audio);
         } else {
           const fileIcon = document.createElement('div');
@@ -247,12 +288,13 @@
 
         const fileName = document.createElement('span');
         fileName.className = 'file-name';
-        fileName.textContent = file.name;
+        fileName.textContent = `${file.name} (${fileSize})`;
         preview.appendChild(fileName);
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'file-remove';
         removeBtn.textContent = '×';
+        removeBtn.setAttribute('aria-label', `Remove ${file.name}`);
         removeBtn.onclick = () => removeFile(index);
         preview.appendChild(removeBtn);
 
@@ -268,9 +310,19 @@
     // Form submission
     const postForm = document.getElementById('post-form');
     const submitBtn = document.getElementById('submit-btn');
+    const progressContainer = document.getElementById('upload-progress');
+    const progressFill = document.querySelector('.progress-fill');
+    const progressText = document.querySelector('.progress-text');
+    const progressPercentage = document.querySelector('.progress-percentage');
+    const cancelBtn = document.getElementById('cancel-upload');
     
     postForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      if (selectedFiles.length === 0 && !document.getElementById('post-text').value.trim()) {
+        showNotification('Please add some content or files to share.', 'warning');
+        return;
+      }
       
       const formData = new FormData();
       formData.append('user', usernameInput.value || 'Anonymous');
@@ -278,36 +330,96 @@
       
       if (selectedFiles.length > 0) {
         selectedFiles.forEach(file => {
-          formData.append('files', file);
+          formData.append('file', file);
         });
       }
 
       submitBtn.innerHTML = '<span>🚀 Posting...</span>';
       submitBtn.disabled = true;
+      
+      // Show progress bar
+      progressContainer.style.display = 'block';
+      
+      // Create abort controller for cancellation
+      uploadController = new AbortController();
 
       try {
-        const response = await fetch('/api/posts', {
-          method: 'POST',
-          body: formData
+        const xhr = new XMLHttpRequest();
+        
+        // Upload progress tracking
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            progressFill.style.width = percentComplete + '%';
+            progressPercentage.textContent = Math.round(percentComplete) + '%';
+            progressText.textContent = `Uploading... ${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`;
+          }
         });
-
-        if (response.ok) {
-          postForm.reset();
-          selectedFiles = [];
-          displayFilePreviews();
-          loadPosts(true); // Refresh feed
-          showNotification('Post shared successfully! 🎉', 'success');
-        } else {
-          throw new Error('Failed to post');
-        }
+        
+        // Handle completion
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            postForm.reset();
+            selectedFiles = [];
+            displayFilePreviews();
+            loadPosts(true);
+            showNotification('Post shared successfully! 🎉', 'success');
+          } else {
+            throw new Error('Upload failed');
+          }
+        });
+        
+        xhr.addEventListener('error', () => {
+          throw new Error('Network error during upload');
+        });
+        
+        xhr.addEventListener('abort', () => {
+          showNotification('Upload cancelled', 'info');
+        });
+        
+        // Setup request
+        xhr.open('POST', '/api/posts');
+        xhr.send(formData);
+        
+        // Handle cancellation
+        cancelBtn.onclick = () => {
+          xhr.abort();
+          uploadController.abort();
+        };
+        
       } catch (error) {
         console.error('Error posting:', error);
-        showNotification('Failed to post. Please try again.', 'error');
+        
+        if (error.name === 'AbortError') {
+          showNotification('Upload cancelled', 'info');
+        } else if (!navigator.onLine) {
+          showNotification('Posted offline. Will sync when connection is restored.', 'warning');
+        } else {
+          showNotification('Failed to post. Please try again.', 'error');
+        }
       } finally {
         submitBtn.innerHTML = '<span>🚀 Share Post</span>';
         submitBtn.disabled = false;
+        progressContainer.style.display = 'none';
+        uploadController = null;
       }
     });
+    
+    // Cancel upload functionality
+    cancelBtn.addEventListener('click', () => {
+      if (uploadController) {
+        uploadController.abort();
+      }
+    });
+
+    // Utility function to format file sizes
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
 
     // Posts loading and display
     async function loadPosts(refresh = false) {
@@ -386,31 +498,34 @@
           mediaHTML = `
             <div class="post-media">
               <img src="${mediaUrl}" alt="Post image" onclick="openLightbox('${mediaUrl}', 'image')" />
+              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download image">⬇️</button>
             </div>
           `;
         } else if (post.fileType?.startsWith('video/')) {
           mediaHTML = `
             <div class="post-media">
-              <video controls>
+              <video controls preload="metadata">
                 <source src="${mediaUrl}" type="${post.fileType}">
+                Your browser does not support the video tag.
               </video>
-              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')">⬇️</button>
+              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download video">⬇️</button>
             </div>
           `;
         } else if (post.fileType?.startsWith('audio/')) {
           mediaHTML = `
             <div class="post-media">
-              <audio controls>
+              <audio controls preload="metadata">
                 <source src="${mediaUrl}" type="${post.fileType}">
+                Your browser does not support the audio tag.
               </audio>
-              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')">⬇️</button>
+              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download audio">⬇️</button>
             </div>
           `;
         } else {
           mediaHTML = `
             <div class="post-media">
-              <a href="${mediaUrl}" download target="_blank" class="file-attachment">
-                📎 Download Attachment
+              <a href="${mediaUrl}" download target="_blank" class="file-attachment" aria-label="Download file">
+                📎 Download ${post.media.split('/').pop()}
               </a>
             </div>
           `;
@@ -744,14 +859,20 @@
       if (type === 'image') {
         mediaContainer.innerHTML = `<img src="${src}" alt="Lightbox image" />`;
       } else if (type === 'video') {
-        mediaContainer.innerHTML = `<video src="${src}" controls autoplay />`;
+        mediaContainer.innerHTML = `
+          <video controls autoplay>
+            <source src="${src}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+        `;
       }
       
       lightbox.style.display = 'flex';
       document.body.style.overflow = 'hidden';
       
       // Set download link
-      document.getElementById('lightbox-download').onclick = () => downloadFile(src);
+      const filename = src.split('/').pop();
+      document.getElementById('lightbox-download').onclick = () => downloadFile(src, filename);
     }
 
     function closeLightbox() {
@@ -774,10 +895,13 @@
     function downloadFile(url, filename) {
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename || 'download';
+      a.download = filename || url.split('/').pop() || 'download';
+      a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      
+      showNotification('Download started', 'success');
     }
 
     // Utility functions
@@ -842,16 +966,55 @@
 
     // Online/Offline Status
     const offlineBanner = document.getElementById('offline-banner');
+    const offlineCount = document.getElementById('offline-count');
+    
+    function updateOfflineStatus() {
+      if (navigator.onLine) {
+        offlineBanner.classList.remove('show');
+      } else {
+        offlineBanner.classList.add('show');
+        updateOfflineCount();
+      }
+    }
+    
+    function updateOfflineCount() {
+      if ('serviceWorker' in navigator) {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (event) => {
+          const count = event.data.count;
+          if (count > 0) {
+            offlineCount.textContent = `${count} post${count > 1 ? 's' : ''} pending sync`;
+            offlineCount.style.display = 'block';
+          } else {
+            offlineCount.style.display = 'none';
+          }
+        };
+        
+        navigator.serviceWorker.controller?.postMessage(
+          { type: 'GET_OFFLINE_COUNT' },
+          [channel.port2]
+        );
+      }
+    }
     
     window.addEventListener('online', () => {
-      offlineBanner.classList.remove('show');
+      updateOfflineStatus();
       showNotification('Back online! 🌐', 'success');
+      // Trigger background sync
+      if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+        navigator.serviceWorker.ready.then(registration => {
+          return registration.sync.register('background-post');
+        });
+      }
     });
 
     window.addEventListener('offline', () => {
-      offlineBanner.classList.add('show');
+      updateOfflineStatus();
       showNotification('You are offline 📡', 'warning');
     });
+    
+    // Initial offline status check
+    updateOfflineStatus();
 
     // PWA Install Prompt
     const installBanner = document.getElementById('install-banner');
@@ -907,8 +1070,18 @@
 
       // Listen for messages from service worker
       navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'SYNC_COMPLETE') {
-          showNotification(event.data.message, 'success');
+        const { data } = event.data;
+        
+        if (data.type === 'SYNC_COMPLETE') {
+          showNotification(data.message, 'success');
+          updateOfflineCount();
+          loadPosts(true); // Refresh feed after sync
+        }
+        
+        if (data.type === 'NEW_CONTENT') {
+          if (data.count > 0) {
+            showNotification(`${data.count} new post${data.count > 1 ? 's' : ''} available`, 'info');
+          }
         }
       });
     }
@@ -954,6 +1127,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       loadPosts(true);
       lastPostTime = new Date();
+      updateOfflineStatus();
       
       // Add intersection observer for animations
       const observer = new IntersectionObserver((entries) => {
@@ -968,6 +1142,9 @@
       document.querySelectorAll('.card').forEach(card => {
         observer.observe(card);
       });
+      
+      // Update offline count periodically
+      setInterval(updateOfflineCount, 30000); // Every 30 seconds
       
       // Close reactions menu when clicking outside
       document.addEventListener('click', (e) => {

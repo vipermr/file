@@ -294,16 +294,20 @@ body.dark small {
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.02), rgba(179, 71, 217, 0.02));
 }
 
 body.dark .file-upload-area {
   border-color: var(--border-dark);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.05), rgba(179, 71, 217, 0.05));
 }
 
 .file-upload-area:hover,
 .file-upload-area.drag-over {
   border-color: var(--primary);
-  background: rgba(0, 212, 255, 0.05);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(179, 71, 217, 0.1));
+  transform: scale(1.02);
+  box-shadow: 0 5px 20px rgba(0, 212, 255, 0.2);
 }
 
 .file-upload-area input[type="file"] {
@@ -340,6 +344,8 @@ body.dark .file-upload-area {
   overflow: hidden;
   background: var(--card-bg-light);
   border: 1px solid var(--border-light);
+  transition: all var(--transition-fast);
+  animation: slideInUp 0.3s ease-out;
 }
 
 body.dark .file-preview {
@@ -347,11 +353,33 @@ body.dark .file-preview {
   border-color: var(--border-dark);
 }
 
+.file-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 212, 255, 0.2);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .file-preview img,
 .file-preview video {
   width: 100%;
   height: 80px;
   object-fit: cover;
+  transition: transform var(--transition-fast);
+}
+
+.file-preview img:hover,
+.file-preview video:hover {
+  transform: scale(1.05);
 }
 
 .file-preview audio {
@@ -380,7 +408,7 @@ body.dark .file-preview {
   position: absolute;
   top: var(--spacing-xs);
   right: var(--spacing-xs);
-  background: rgba(255, 0, 0, 0.8);
+  background: linear-gradient(135deg, var(--error), #ff4757);
   color: white;
   border: none;
   border-radius: 50%;
@@ -391,6 +419,82 @@ body.dark .file-preview {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all var(--transition-fast);
+  opacity: 0.8;
+}
+
+.file-remove:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(255, 0, 0, 0.4);
+}
+
+/* Upload Progress */
+.upload-progress {
+  margin: var(--spacing-md) 0;
+  padding: var(--spacing-md);
+  background: var(--card-bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  animation: slideInDown 0.3s ease-out;
+}
+
+body.dark .upload-progress {
+  background: var(--card-bg-dark);
+  border-color: var(--border-dark);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+body.dark .progress-bar {
+  background: var(--border-dark);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  width: 0%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+body.dark .progress-text {
+  color: var(--text-dark);
+}
+
+.progress-percentage {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Navigation */
@@ -515,7 +619,7 @@ body.dark .post-time {
   position: absolute;
   top: var(--spacing-sm);
   right: var(--spacing-sm);
-  background: rgba(0, 0, 0, 0.7);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
   color: white;
   border: none;
   border-radius: var(--radius);
@@ -523,11 +627,18 @@ body.dark .post-time {
   cursor: pointer;
   font-size: 0.8rem;
   transition: all var(--transition-fast);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+}
+
+.post-media:hover .media-download {
+  opacity: 1;
 }
 
 .media-download:hover {
-  background: rgba(0, 0, 0, 0.9);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
 }
 
 .file-attachment {
@@ -535,16 +646,18 @@ body.dark .post-time {
   align-items: center;
   gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--primary);
+  background: var(--gradient-primary);
   color: white;
   text-decoration: none;
   border-radius: var(--radius);
   transition: all var(--transition-fast);
+  font-weight: 500;
 }
 
 .file-attachment:hover {
-  background: var(--secondary);
+  background: var(--gradient-accent);
   transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
 }
 
 /* Post Actions */
@@ -876,8 +989,12 @@ body.dark .skeleton-post {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
   animation: skeleton-loading 1.5s infinite;
+}
+
+body.dark .skeleton-post::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
 }
 
 @keyframes skeleton-loading {
@@ -943,18 +1060,38 @@ body.dark .empty-state {
   top: 0;
   left: 0;
   right: 0;
-  background: var(--warning);
+  background: linear-gradient(135deg, var(--warning), var(--error));
   color: white;
-  text-align: center;
   padding: var(--spacing-sm);
   transform: translateY(-100%);
   transition: transform var(--transition-smooth);
   z-index: 1001;
   font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .offline-banner.show {
   transform: translateY(0);
+}
+
+.offline-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.offline-icon {
+  font-size: 1.5rem;
+  animation: pulse 2s infinite;
+}
+
+.offline-count {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  margin-top: 2px;
+  display: none;
 }
 
 /* Install Banner */
@@ -1000,12 +1137,13 @@ body.dark .empty-state {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.95);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   backdrop-filter: blur(10px);
+  animation: fadeIn 0.3s ease-out;
 }
 
 .lightbox-content {
@@ -1015,6 +1153,18 @@ body.dark .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .lightbox-media img,
@@ -1023,6 +1173,7 @@ body.dark .empty-state {
   max-height: 80vh;
   object-fit: contain;
   border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .lightbox-close {
@@ -1040,8 +1191,9 @@ body.dark .empty-state {
 }
 
 .lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.8), rgba(255, 0, 0, 0.6));
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
 }
 
 .lightbox-controls {
@@ -1131,10 +1283,114 @@ body.dark .notification {
   animation: fadeOut 0.3s ease-out;
 }
 
+@keyframes heartPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes buttonGlow {
+  0% { box-shadow: 0 0 5px rgba(0, 212, 255, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(0, 212, 255, 0.3); }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Enhanced Button Interactions */
+.btn:hover {
+  animation: buttonGlow 2s infinite;
+}
+
+.like-btn.pulse .reaction-icon {
+  animation: heartPulse 0.6s ease-out;
+}
+
+/* New Post Slide In */
+.new-post {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+/* Comment Expand Animation */
+.comments-section {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.comments-section[style*="display: block"] {
+  animation: slideInDown 0.3s ease-out;
+}
+
+/* Notification Bounce */
+.notification.show {
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* Theme Toggle Animation */
+.theme-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.3), transparent);
+  transition: all 0.3s ease;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.theme-toggle:hover::before {
+  width: 100px;
+  height: 100px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .header {
     padding: var(--spacing-md);
+  }
+  
+  .offline-content {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-xs);
+  }
+  
+  .offline-icon {
+    font-size: 1.2rem;
   }
   
   .header h1 {
