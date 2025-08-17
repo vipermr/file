@@ -164,8 +164,93 @@
     let currentView = 'feed';
     let deferredPrompt;
     let uploadController = null;
+    let socket;
+    let currentUser = null;
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB
+
+    // Check authentication
+    function checkAuth() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/auth.html';
+        return false;
+      }
+      return true;
+    }
+
+    // Initialize socket connection
+    function initSocket() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      socket = io();
+      
+      socket.on('connect', () => {
+        console.log('Connected to server');
+        socket.emit('authenticate', token);
+      });
+
+      socket.on('authenticated', (data) => {
+        console.log('Authenticated as:', data.user);
+      });
+
+      socket.on('newPost', (post) => {
+        // Add new post to feed
+        const container = document.getElementById('posts-feed');
+        const postElement = createPostElement(post);
+        postElement.classList.add('new-post');
+        container.insertBefore(postElement, container.firstChild);
+        
+        setTimeout(() => {
+          postElement.classList.add('fade-in');
+          postElement.classList.remove('new-post');
+        }, 100);
+        
+        showNotification('New post added! 🎉', 'success');
+      });
+
+      socket.on('postLiked', (data) => {
+        const postElement = document.querySelector(`[data-post-id="${data.postId}"]`);
+        if (postElement) {
+          const likeCount = postElement.querySelector('.like-count');
+          if (likeCount) {
+            likeCount.textContent = data.likes;
+          }
+        }
+      });
+
+      socket.on('postDeleted', (data) => {
+        const postElement = document.querySelector(`[data-post-id="${data.postId}"]`);
+        if (postElement) {
+          postElement.classList.add('fade-out');
+          setTimeout(() => postElement.remove(), 300);
+        }
+      });
+    }
+
+    // Get current user info
+    async function getCurrentUser() {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentUser = data.user;
+          return data.user;
+        }
+      } catch (error) {
+        console.error('Error getting current user:', error);
+      }
+      return null;
+    }
 
     // Theme Management
     const themeToggle = document.getElementById('theme-toggle');
@@ -319,18 +404,19 @@
     postForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
+      if (!checkAuth()) return;
+      
       if (selectedFiles.length === 0 && !document.getElementById('post-text').value.trim()) {
         showNotification('Please add some content or files to share.', 'warning');
         return;
       }
       
       const formData = new FormData();
-      formData.append('user', usernameInput.value || 'Anonymous');
       formData.append('text', document.getElementById('post-text').value);
       
       if (selectedFiles.length > 0) {
         selectedFiles.forEach(file => {
-          formData.append('file', file);
+          formData.append('files', file);
         });
       }
 
@@ -379,6 +465,7 @@
         
         // Setup request
         xhr.open('POST', '/api/posts');
+        xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
         xhr.send(formData);
         
         // Handle cancellation
@@ -432,7 +519,13 @@
       }
 
       try {
-        const response = await fetch(`/api/posts?page=${currentPage}&limit=10`);
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/posts?page=${currentPage}&limit=10`, { headers });
         const posts = await response.json();
         
         if (refresh) {
@@ -488,54 +581,61 @@
       postDiv.setAttribute('data-post-id', post._id);
 
       const timeAgo = getTimeAgo(new Date(post.createdAt));
-      const canDelete = post.user === localStorage.getItem('username');
+      const canDelete = currentUser && post.userId._id === currentUser.id;
+      const isPremium = post.userId?.isPremium || false;
 
       let mediaHTML = '';
-      if (post.media) {
-        const mediaUrl = post.media.startsWith('uploads/') ? `/${post.media}` : post.media;
-        
-        if (post.fileType?.startsWith('image/')) {
-          mediaHTML = `
-            <div class="post-media">
-              <img src="${mediaUrl}" alt="Post image" onclick="openLightbox('${mediaUrl}', 'image')" />
-              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download image">⬇️</button>
-            </div>
-          `;
-        } else if (post.fileType?.startsWith('video/')) {
-          mediaHTML = `
-            <div class="post-media">
-              <video controls preload="metadata">
-                <source src="${mediaUrl}" type="${post.fileType}">
-                Your browser does not support the video tag.
-              </video>
-              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download video">⬇️</button>
-            </div>
-          `;
-        } else if (post.fileType?.startsWith('audio/')) {
-          mediaHTML = `
-            <div class="post-media">
-              <audio controls preload="metadata">
-                <source src="${mediaUrl}" type="${post.fileType}">
-                Your browser does not support the audio tag.
-              </audio>
-              <button class="media-download" onclick="downloadFile('${mediaUrl}', '${post.media}')" aria-label="Download audio">⬇️</button>
-            </div>
-          `;
-        } else {
-          mediaHTML = `
-            <div class="post-media">
-              <a href="${mediaUrl}" download target="_blank" class="file-attachment" aria-label="Download file">
-                📎 Download ${post.media.split('/').pop()}
-              </a>
-            </div>
-          `;
+      if (post.media && post.media.length > 0) {
+        mediaHTML = post.media.map(file => {
+          const mediaUrl = file.url;
+          
+          if (file.mimetype?.startsWith('image/')) {
+            return `
+              <div class="post-media">
+                <img src="${mediaUrl}" alt="Post image" onclick="openLightbox('${mediaUrl}', 'image')" />
+                <button class="media-download" onclick="downloadFile('${mediaUrl}', '${file.originalName}')" aria-label="Download image">⬇️</button>
+              </div>
+            `;
+          } else if (file.mimetype?.startsWith('video/')) {
+            return `
+              <div class="post-media">
+                <video controls preload="metadata">
+                  <source src="${mediaUrl}" type="${file.mimetype}">
+                  Your browser does not support the video tag.
+                </video>
+                <button class="media-download" onclick="downloadFile('${mediaUrl}', '${file.originalName}')" aria-label="Download video">⬇️</button>
+              </div>
+            `;
+          } else if (file.mimetype?.startsWith('audio/')) {
+            return `
+              <div class="post-media">
+                <audio controls preload="metadata">
+                  <source src="${mediaUrl}" type="${file.mimetype}">
+                  Your browser does not support the audio tag.
+                </audio>
+                <button class="media-download" onclick="downloadFile('${mediaUrl}', '${file.originalName}')" aria-label="Download audio">⬇️</button>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="post-media">
+                <a href="${mediaUrl}" download target="_blank" class="file-attachment" aria-label="Download file">
+                  📎 Download ${file.originalName}
+                </a>
+              </div>
+            `;
+          }
+        }).join('');
         }
       }
 
       postDiv.innerHTML = `
         <div class="post-header">
           <div class="post-author">
-            <strong>${post.user || 'Anonymous'}</strong>
+            <strong onclick="viewUserProfile('${post.userId.username}')" style="cursor: pointer;">
+              ${post.userId.username || 'Anonymous'}
+              ${isPremium ? '<span class="premium-badge">✨ Premium</span>' : ''}
+            </strong>
             <span class="post-time">${timeAgo}</span>
           </div>
           ${canDelete ? `<button class="post-delete" onclick="deletePost('${post._id}')" aria-label="Delete post">🗑️</button>` : ''}
@@ -591,16 +691,25 @@
       return postDiv;
     }
 
+    // View user profile
+    function viewUserProfile(username) {
+      window.location.href = `/profile.html?user=${username}`;
+    }
+
     function createCommentHTML(comment, postId, level = 0) {
       const timeAgo = getTimeAgo(new Date(comment.createdAt));
-      const canDelete = comment.user === localStorage.getItem('username');
+      const canDelete = currentUser && comment.userId._id === currentUser.id;
       const maxLevel = 3;
       const indent = level * 20;
+      const isPremium = comment.userId?.isPremium || false;
       
       return `
         <div class="comment level-${level}" data-comment-id="${comment._id}" style="margin-left: ${indent}px;">
           <div class="comment-header">
-            <strong>${comment.user || 'Anonymous'}</strong>
+            <strong onclick="viewUserProfile('${comment.userId.username}')" style="cursor: pointer;">
+              ${comment.userId.username || 'Anonymous'}
+              ${isPremium ? '<span class="premium-badge">✨</span>' : ''}
+            </strong>
             <span class="comment-time">${timeAgo}</span>
             ${canDelete ? `<button class="comment-delete" onclick="deleteComment('${comment._id}')" aria-label="Delete comment">🗑️</button>` : ''}
           </div>
@@ -627,9 +736,14 @@
 
     // Post interactions
     async function toggleLike(postId) {
+      if (!checkAuth()) return;
+      
       try {
         const response = await fetch(`/api/posts/${postId}/like`, {
-          method: 'POST'
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         });
         
         if (response.ok) {
@@ -637,7 +751,11 @@
           const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
           const likeCount = likeBtn.querySelector('.like-count');
           
-          likeBtn.classList.add('liked');
+          if (result.liked) {
+            likeBtn.classList.add('liked');
+          } else {
+            likeBtn.classList.remove('liked');
+          }
           likeCount.textContent = result.likes;
           
           // Animate heart
@@ -650,15 +768,17 @@
     }
 
     async function addReaction(postId, reactionType) {
+      if (!checkAuth()) return;
+      
       try {
         const response = await fetch(`/api/posts/${postId}/reactions`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            type: reactionType,
-            username: localStorage.getItem('username') || 'Anonymous'
+            type: reactionType
           })
         });
         
@@ -709,21 +829,21 @@
     }
 
     async function submitComment(postId) {
+      if (!checkAuth()) return;
+      
       const input = document.querySelector(`#comments-${postId} .comment-input`);
       const text = input.value.trim();
       
       if (!text) return;
       
-      const username = localStorage.getItem('username') || 'Anonymous';
-      
       try {
         const response = await fetch(`/api/posts/${postId}/comments`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            user: username,
             text: text
           })
         });
@@ -758,21 +878,21 @@
     }
 
     async function submitReply(commentId, postId) {
+      if (!checkAuth()) return;
+      
       const input = document.querySelector(`#reply-form-${commentId} .reply-input`);
       const text = input.value.trim();
       
       if (!text) return;
       
-      const username = localStorage.getItem('username') || 'Anonymous';
-      
       try {
         const response = await fetch(`/api/posts/${postId}/comments/${commentId}/replies`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            user: username,
             text: text
           })
         });
@@ -788,9 +908,14 @@
     }
 
     async function toggleCommentLike(commentId, postId) {
+      if (!checkAuth()) return;
+      
       try {
         const response = await fetch(`/api/posts/${postId}/comments/${commentId}/like`, {
-          method: 'POST'
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getToken('token')}`
+          }
         });
         
         if (response.ok) {
@@ -811,17 +936,16 @@
     }
 
     async function deletePost(postId) {
+      if (!checkAuth()) return;
+      
       if (!confirm('Are you sure you want to delete this post?')) return;
       
       try {
         const response = await fetch(`/api/posts/${postId}`, {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            username: localStorage.getItem('username')
-          })
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         });
         
         if (response.ok) {
@@ -1125,6 +1249,31 @@
 
     // Initialize app
     document.addEventListener('DOMContentLoaded', () => {
+      // Check if user is logged in
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/auth.html';
+        return;
+      }
+      
+      // Initialize user and socket
+      getCurrentUser().then(user => {
+        if (user) {
+          // Update username input with current user
+          usernameInput.value = user.username;
+          usernameInput.disabled = true;
+          
+          // Initialize socket connection
+          initSocket();
+        } else {
+          // Invalid token, redirect to auth
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/auth.html';
+          return;
+        }
+      });
+      
       loadPosts(true);
       lastPostTime = new Date();
       updateOfflineStatus();
@@ -1154,7 +1303,26 @@
           });
         }
       });
+      
+      // Add navigation buttons
+      const navButtons = document.querySelector('.nav-buttons');
+      navButtons.innerHTML += `
+        <a href="/chat.html" class="btn btn-outline">💬 Chat</a>
+        <a href="/search.html" class="btn btn-outline">🔍 Search</a>
+        <button class="btn btn-outline" onclick="logout()">🚪 Logout</button>
+      `;
     });
+    
+    // Logout function
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('username');
+      if (socket) {
+        socket.disconnect();
+      }
+      window.location.href = '/auth.html';
+    }
   </script>
 </body>
 </html>
