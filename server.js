@@ -99,29 +99,3 @@ app.post('/api/posts/:id/love', async (req, res) => {
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-app.post('/upload', upload.single('file'), async (req, res) => {
-  try {
-    const post = new Post({
-      name: req.body.name,
-      text: req.body.text || '',
-      file: req.file ? '/uploads/' + req.file.filename : '',
-      love: 0
-    });
-    await post.save();
-    res.redirect('/');
-  } catch (err) {
-    res.status(500).send('Upload failed');
-  }
-});
-
-app.post('/delete/:id', async (req, res) => {
-  const id = req.params.id;
-  const pwd = req.body.password;
-  if (pwd !== "pronafij") return res.status(403).send("Forbidden");
-  try {
-    await Post.deleteOne({ _id: new mongoose.Types.ObjectId(id) });
-    res.redirect('/admin.html');
-  } catch {
-    res.status(500).send("Failed to delete");
-  }
-});
