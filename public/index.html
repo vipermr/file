@@ -1,95 +1,283 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Share files, images, videos, and text with the community" />
+  <meta name="theme-color" content="#00d4ff" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
-  <meta name="theme-color" content="#000000">
   <link rel="stylesheet" href="style.css">
-  <title>Post Something</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      margin: 20px;
-      background: var(--bg);
-      color: var(--text);
-      transition: background 0.3s, color 0.3s;
-    }
-    :root {
-      --bg: #ffffff;
-      --text: #000000;
-    }
-    body.dark {
-      --bg: #111111;
-      --text: #ffffff;
-    }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 1rem;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 15px;
-      cursor: pointer;
-    }
-    a {
-      color: var(--text);
-      text-decoration: underline;
-    }
-    .footer {
-      margin-top: 50px;
-      text-align: center;
-    }
-    .premium-label {
-      display: inline-block;
-      background: linear-gradient(45deg, #ff8c00, #ff2d55);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 25px;
-      font-weight: bold;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Nafij's File Sharing</title>
 </head>
 <body>
-<div class="container">
-
-  <script>
-    if (localStorage.theme === 'dark') {
-      document.body.classList.add('dark');
-    }
-    function toggleTheme() {
-      document.body.classList.toggle('dark');
-      localStorage.theme = document.body.classList.contains('dark') ? 'dark' : 'light';
-    }
-  </script>
-
-  <button onclick="toggleTheme()">🌙 Toggle Theme</button>
-
-  <h1>Welcome to Nafij's File Sharing</h1>
-<a href="/all" style="display:inline-block;margin-top:15px;padding:10px 15px;background:#007bff;color:#fff;border:none;border-radius:6px;text-decoration:none;cursor:pointer;">🔍 View Posts</a>
-  <h2>Post something</h2>
-  <form method="POST" action="/api/posts" enctype="multipart/form-data">
-    <input type="text" name="user" placeholder="Your name" required><br><br>
-    <textarea name="text" placeholder="Say something..." rows="4" cols="50"></textarea><br><br>
-    <label>Select a file to upload:</label><br>
-    <input type="file" name="file"><br><br>
-    <button type="submit">Post</button>
-  </form>
-
-  <div class="footer">
-    <div class="premium-label">Created by Nafij Pro</div>
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="offline-banner" role="alert" aria-live="polite">
+    📡 You're offline. Posts will be synced when connection is restored.
   </div>
 
-</div>
+  <!-- Install Banner -->
+  <div id="install-banner" class="install-banner" role="banner">
+    <span>📱 Install this app for a better experience!</span>
+    <div>
+      <button id="install-btn" aria-label="Install app">Install</button>
+      <button id="dismiss-install" aria-label="Dismiss install prompt">Dismiss</button>
+    </div>
+  </div>
 
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js');
-  }
-</script>
+  <!-- Header -->
+  <header class="header" role="banner">
+    <h1>🚀 Nafij's File Share</h1>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </header>
 
+  <!-- Main Content -->
+  <main class="container" role="main">
+    <section class="card fade-in" aria-labelledby="post-heading">
+      <h2 id="post-heading">Share Something Amazing</h2>
+      <form id="post-form" method="POST" action="/api/posts" enctype="multipart/form-data" role="form">
+        <div>
+          <label for="username">Username (max 20 chars)</label>
+          <input 
+            type="text" 
+            id="username" 
+            name="user" 
+            placeholder="Enter your username" 
+            maxlength="20" 
+            required 
+            aria-describedby="username-help"
+          />
+          <small id="username-help">Your username will be saved for future posts</small>
+        </div>
+
+        <div>
+          <label for="post-text">What's on your mind?</label>
+          <textarea 
+            id="post-text" 
+            name="text" 
+            placeholder="Share your thoughts, use emojis! 🎉" 
+            rows="4"
+            aria-describedby="text-help"
+          ></textarea>
+          <small id="text-help">Supports emojis and multi-line text</small>
+        </div>
+
+        <div>
+          <label for="file-input">Upload Files (images, videos, audio, documents)</label>
+          <input 
+            type="file" 
+            id="file-input" 
+            name="file" 
+            multiple 
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+            aria-describedby="file-help"
+          />
+          <small id="file-help">Multiple files supported: images, videos, audio, documents</small>
+        </div>
+
+        <div id="upload-progress" class="upload-progress" style="display: none;" role="progressbar" aria-live="polite">
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+          <button type="button" id="cancel-upload" class="btn-outline">Cancel</button>
+        </div>
+
+        <button type="submit" class="btn" id="submit-btn">
+          <span>🚀 Share Post</span>
+        </button>
+      </form>
+    </section>
+
+    <nav class="card" role="navigation" aria-label="Site navigation">
+      <h3>Explore</h3>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="/all" class="btn btn-secondary">📋 View All Posts</a>
+        <a href="/info" class="btn btn-outline">ℹ️ About</a>
+        <a href="/admin" class="btn btn-outline">⚙️ Admin</a>
+      </div>
+    </nav>
+
+    <section class="card" aria-labelledby="recent-heading">
+      <h3 id="recent-heading">Recent Activity</h3>
+      <div id="recent-posts" role="feed" aria-live="polite">
+        <p>Loading recent posts...</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Scroll to Top Button -->
+  <button class="scroll-top" id="scroll-top" aria-label="Scroll to top">
+    ↑
+  </button>
+
+  <!-- Scripts -->
+  <script>
+    // Theme Management
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const body = document.body;
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      body.classList.add('dark');
+      themeIcon.textContent = '☀️';
+    }
+
+    themeToggle.addEventListener('click', () => {
+      body.classList.toggle('dark');
+      const isDark = body.classList.contains('dark');
+      themeIcon.textContent = isDark ? '☀️' : '🌙';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // Username Management
+    const usernameInput = document.getElementById('username');
+    const savedUsername = localStorage.getItem('username');
+    if (savedUsername) {
+      usernameInput.value = savedUsername;
+    }
+
+    usernameInput.addEventListener('input', (e) => {
+      localStorage.setItem('username', e.target.value);
+    });
+
+    // Scroll to Top Button
+    const scrollTopBtn = document.getElementById('scroll-top');
+    
+    window.addEventListener('scroll', () => {
+      if (window.pageYOffset > 300) {
+        scrollTopBtn.classList.add('visible');
+      } else {
+        scrollTopBtn.classList.remove('visible');
+      }
+    });
+
+    scrollTopBtn.addEventListener('click', () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
+
+    // Online/Offline Status
+    const offlineBanner = document.getElementById('offline-banner');
+    
+    window.addEventListener('online', () => {
+      offlineBanner.classList.remove('show');
+    });
+
+    window.addEventListener('offline', () => {
+      offlineBanner.classList.add('show');
+    });
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    const installBanner = document.getElementById('install-banner');
+    const installBtn = document.getElementById('install-btn');
+    const dismissBtn = document.getElementById('dismiss-install');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Show install banner if not dismissed
+      if (!localStorage.getItem('install-dismissed')) {
+        installBanner.classList.add('show');
+      }
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBanner.classList.remove('show');
+      }
+    });
+
+    dismissBtn.addEventListener('click', () => {
+      installBanner.classList.remove('show');
+      localStorage.setItem('install-dismissed', 'true');
+    });
+
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(registration => {
+          console.log('SW registered:', registration);
+        })
+        .catch(error => {
+          console.log('SW registration failed:', error);
+        });
+    }
+
+    // Load Recent Posts
+    async function loadRecentPosts() {
+      try {
+        const response = await fetch('/api/posts');
+        const posts = await response.json();
+        const recentPostsContainer = document.getElementById('recent-posts');
+        
+        if (posts.length === 0) {
+          recentPostsContainer.innerHTML = '<p>No posts yet. Be the first to share something!</p>';
+          return;
+        }
+
+        const recentPosts = posts.slice(0, 3);
+        recentPostsContainer.innerHTML = recentPosts.map(post => `
+          <div class="card fade-in" style="margin: 1rem 0;">
+            <strong>${post.user || 'Anonymous'}</strong>
+            <p>${post.text || ''}</p>
+            ${post.media ? `<p><a href="/${post.media}" target="_blank">📎 View attachment</a></p>` : ''}
+            <small>❤️ ${post.likes || 0} likes</small>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading posts:', error);
+        document.getElementById('recent-posts').innerHTML = '<p>Unable to load posts. Check your connection.</p>';
+      }
+    }
+
+    // Load posts on page load
+    loadRecentPosts();
+
+    // Auto-refresh posts every 15 seconds
+    setInterval(loadRecentPosts, 15000);
+
+    // Form Enhancement
+    const postForm = document.getElementById('post-form');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    postForm.addEventListener('submit', (e) => {
+      submitBtn.innerHTML = '<span>🚀 Posting...</span>';
+      submitBtn.disabled = true;
+      
+      // Re-enable after 3 seconds (fallback)
+      setTimeout(() => {
+        submitBtn.innerHTML = '<span>🚀 Share Post</span>';
+        submitBtn.disabled = false;
+      }, 3000);
+    });
+
+    // Add smooth animations to new elements
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('fade-in');
+        }
+      });
+    });
+
+    // Observe all cards for animation
+    document.querySelectorAll('.card').forEach(card => {
+      observer.observe(card);
+    });
+  </script>
 </body>
 </html>
